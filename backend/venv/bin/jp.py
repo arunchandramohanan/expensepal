@@ -1,4 +1,4 @@
-#!/home/ubuntu/webapp/expensepal/backend/venv/bin/python3
+#!/home/ubuntu/expensepal/expensepal/backend/venv/bin/python3
 
 import sys
 import json

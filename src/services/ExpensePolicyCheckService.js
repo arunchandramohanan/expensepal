@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { API_ENDPOINTS } from '../config/apiConfig.js';
 
-const API_URL = 'http://10.105.212.31:3042/expensepolicycheck';
+const API_URL = API_ENDPOINTS.EXPENSE_POLICY_CHECK;
 
 const ExpensePolicyCheckService = {
   async checkPolicyCompliance(seniority,extractionResults, policyRules) {

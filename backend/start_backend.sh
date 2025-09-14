@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Navigate to backend directory
-cd /home/ubuntu/webapp/expensepal/backend
+cd /home/ubuntu/expensepal/expensepal/backend
 
 # Install required system packages if not already installed
 echo "Checking system dependencies..."
@@ -29,4 +29,4 @@ mkdir -p uploads
 
 # Start the Flask application
 echo "Starting ExpensePal backend on port 3042..."
-python app.py
+python3 app.py

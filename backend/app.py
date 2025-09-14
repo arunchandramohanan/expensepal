@@ -4,12 +4,16 @@ import os
 import uuid
 import tempfile
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
 # Create upload folder
-UPLOAD_FOLDER = '/home/ubuntu/webapp/expensepal/backend/uploads'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -274,4 +278,7 @@ def policy_extraction_from_url():
         }), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3042, debug=True)
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', 3042))
+    debug = os.getenv('DEBUG', 'True').lower() == 'true'
+    app.run(host=host, port=port, debug=debug)
