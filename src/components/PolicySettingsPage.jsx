@@ -39,10 +39,12 @@ import {
   Article as ArticleIcon,
   FormatListBulleted as ListIcon,
   Upload as UploadIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Link as LinkIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import PolicyDocumentUpload from './PolicyDocumentUpload';
+import PolicyURLExtractor from './PolicyURLExtractor';
 
 // Default policy rules if none are saved
 const DEFAULT_POLICY_RULES = [
@@ -97,16 +99,16 @@ const PolicySettingsPage = () => {
   const [originalRules, setOriginalRules] = useState({});
   const [activeTab, setActiveTab] = useState(0);
 
- // Handle tab change
-const handleTabChange = (event, newValue) => {
-  if (hasUnsavedChanges && activeTab === 0) {
-    if (window.confirm('You have unsaved changes in your policy rules. Are you sure you want to switch tabs?')) {
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    if (hasUnsavedChanges && activeTab === 0) {
+      if (window.confirm('You have unsaved changes in your policy rules. Are you sure you want to switch tabs?')) {
+        setActiveTab(newValue);
+      }
+    } else {
       setActiveTab(newValue);
     }
-  } else {
-    setActiveTab(newValue);
-  }
-};
+  };
   
   // Initialize with a structure that supports country, seniority, and expense type
   const [organizedRules, setOrganizedRules] = useState({
@@ -487,9 +489,14 @@ const handleTabChange = (event, newValue) => {
             label=" Policy Management" 
             iconPosition="start"
           />
-          <Tab 
-            icon={<UploadIcon fontSize="small" />} 
-            label="Upload Policy Documents" 
+          <Tab
+            icon={<UploadIcon fontSize="small" />}
+            label="Upload Policy Documents"
+            iconPosition="start"
+          />
+          <Tab
+            icon={<LinkIcon fontSize="small" />}
+            label="Extract from URL"
             iconPosition="start"
           />
         </Tabs>
@@ -897,6 +904,10 @@ const handleTabChange = (event, newValue) => {
       
         <Box sx={{ display: activeTab === 1 ? 'block' : 'none', flexGrow: 1, overflow: 'auto' }}>
           <PolicyDocumentUpload addPolicyRules={handleAddPolicyRules} />
+        </Box>
+
+        <Box sx={{ display: activeTab === 2 ? 'block' : 'none', flexGrow: 1, overflow: 'auto' }}>
+          <PolicyURLExtractor addPolicyRules={handleAddPolicyRules} />
         </Box>
       </Box>
     </Container>

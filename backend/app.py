@@ -16,6 +16,8 @@ if not os.path.exists(UPLOAD_FOLDER):
 # Import the modules
 import expensereportextractor
 import llm_utils
+import requests
+from urllib.parse import urlparse
 
 @app.route("/")
 def health_check():
@@ -165,6 +167,110 @@ def expense_policy_check():
         return jsonify({
             'isCompliant': False,
             'violations': [{'message': f'Error processing request: {str(e)}'}]
+        }), 500
+
+@app.route("/policyextractionfromurl", methods=['POST'])
+def policy_extraction_from_url():
+    """
+    Extract expense policies from a web URL
+    """
+    print("in policy_extraction_from_url")
+    try:
+        # Get the request data
+        data = request.get_json()
+        if not data or 'url' not in data:
+            return jsonify({
+                'error': 'No URL provided',
+                'policies': []
+            }), 400
+
+        url = data['url']
+
+        # Validate URL format
+        try:
+            parsed_url = urlparse(url)
+            if not all([parsed_url.scheme, parsed_url.netloc]):
+                raise ValueError("Invalid URL format")
+        except Exception:
+            return jsonify({
+                'error': 'Invalid URL format. Please provide a valid HTTP/HTTPS URL.',
+                'policies': []
+            }), 400
+
+        # Fetch content from URL
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            # Check if content is too large (limit to 1MB)
+            if len(response.content) > 1024 * 1024:
+                return jsonify({
+                    'error': 'Content from URL is too large (max 1MB)',
+                    'policies': []
+                }), 400
+
+        except requests.exceptions.Timeout:
+            return jsonify({
+                'error': 'Request timeout. The URL took too long to respond.',
+                'policies': []
+            }), 400
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                'error': f'Failed to fetch content from URL: {str(e)}',
+                'policies': []
+            }), 400
+
+        # Extract text content from HTML or plain text
+        content_type = response.headers.get('content-type', '').lower()
+
+        if 'html' in content_type:
+            # For HTML content, extract text using simple parsing
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.content, 'html.parser')
+                # Remove script and style elements
+                for script in soup(["script", "style"]):
+                    script.decompose()
+                text_content = soup.get_text()
+            except ImportError:
+                # Fallback: simple HTML tag removal
+                import re
+                text_content = re.sub('<[^<]+?>', '', response.text)
+        else:
+            # Plain text content
+            text_content = response.text
+
+        # Clean up the text content
+        lines = [line.strip() for line in text_content.split('\n') if line.strip()]
+        cleaned_content = '\n'.join(lines)
+
+        if not cleaned_content:
+            return jsonify({
+                'error': 'No text content found at the provided URL',
+                'policies': []
+            }), 400
+
+        # Extract policies using LLM
+        extraction_result = expensereportextractor.extract_policies_from_text(cleaned_content)
+
+        # Return the extracted policies and metadata
+        return jsonify({
+            'policies': extraction_result['policies'],
+            'metadata': {
+                'url': url,
+                'contentLength': len(cleaned_content),
+                'processingDate': datetime.now().isoformat()
+            }
+        })
+
+    except Exception as e:
+        print(f"Error in policy_extraction_from_url: {str(e)}")
+        return jsonify({
+            'error': f'Error processing URL: {str(e)}',
+            'policies': []
         }), 500
 
 if __name__ == '__main__':

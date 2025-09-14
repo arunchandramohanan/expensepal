@@ -547,3 +547,143 @@ def process_page(image_path, page_num):
         logging.error(f"Error in process_page for page {page_num + 1}: {str(e)}")
         print(f"Error in process_page for page {page_num + 1}: {str(e)}")
         raise
+
+def extract_policies_from_text(text_content):
+    """
+    Extract policy rules from text content using LLM.
+
+    Args:
+        text_content (str): The text content to analyze
+
+    Returns:
+        dict: Contains extracted policies
+    """
+    try:
+        print(f"Processing text content ({len(text_content)} characters)")
+
+        # If text is too long, truncate it
+        max_length = 50000  # Reasonable limit for LLM processing
+        if len(text_content) > max_length:
+            text_content = text_content[:max_length] + "... [Content truncated]"
+            print(f"Text truncated to {max_length} characters")
+
+        all_policies = []
+
+        # Process the text with LLM
+        response = llm_utils.invoke_bedrock_claude_sonnet_37(
+            prompt=get_policy_extraction_prompt_for_text(text_content),
+            max_tokens=4000
+        )
+
+        # Extract JSON from response
+        json_match = extract_json(response)
+        if json_match:
+            try:
+                result = json.loads(json_match)
+                policies = result.get('policies', [])
+                all_policies.extend(policies)
+                print(f"Extracted {len(policies)} policies from text")
+            except json.JSONDecodeError:
+                logging.error("Failed to parse JSON from text processing")
+                print("Failed to parse JSON from text processing")
+
+        # Post-process to remove duplicates
+        unique_policies = remove_duplicate_policies(all_policies)
+        print(f"After deduplication: {len(all_policies)} → {len(unique_policies)} policies")
+
+        # Reassign IDs to be sequential
+        for i, policy in enumerate(unique_policies):
+            policy['id'] = f"p{i+1}"
+
+        return {
+            'policies': unique_policies
+        }
+
+    except Exception as e:
+        logging.error(f"Error extracting policies from text: {str(e)}")
+        print(f"Error extracting policies from text: {str(e)}")
+        raise
+
+def get_policy_extraction_prompt_for_text(text_content):
+    """
+    Returns the prompt for policy extraction from text content
+    """
+    return f'''You are a specialized AI for extracting expense policy rules from text content.
+Please carefully analyze this text and extract all expense policy rules.
+
+TEXT CONTENT TO ANALYZE:
+{text_content}
+
+For each policy rule you identify:
+1. Extract the exact text of the policy rule
+2. Determine which country it applies to (global if it applies to all countries)
+3. Determine which expense type it applies to (meals, transportation, accommodation, etc.)
+4. Determine which seniority level it applies to (all, junior, mid-level, senior, executive)
+
+Look for policy statements containing keywords like:
+- must, should, required, not allowed, prohibited
+- approval, limit, maximum, minimum
+- expense, receipt, reimbursement
+- specific monetary amounts and currency symbols
+
+Return the extracted policies in exactly this JSON format with no additional text:
+{{
+  "policies": [
+    {{
+      "id": "p1",
+      "text": "<exact policy text>",
+      "country": "<country name or 'global'>",
+      "expenseType": "<expense type>",
+      "seniority": "<seniority level or 'all'>",
+      "confidence": 0.95,
+      "approved": false
+    }}
+  ]
+}}
+
+Valid expense types (use the most appropriate one):
+- meals
+- transportation
+- accommodation
+- entertainment
+- mobile
+- office_supplies
+- software
+- hardware
+- conferences
+- training
+- other
+
+Valid countries (use lowercase, or 'global' if applies everywhere):
+- global
+- united states
+- united kingdom
+- germany
+- france
+- japan
+- canada
+- australia
+- brazil
+- india
+- china
+- singapore
+- south korea
+- mexico
+- spain
+- italy
+- netherlands
+
+Valid seniority levels (use the most appropriate one):
+- all
+- junior
+- mid-level
+- senior
+- executive
+
+Important:
+- Extract complete policy rules with their full context
+- Make sure each rule is distinct (don't duplicate rules)
+- If a specific country/expense type/seniority isn't mentioned, use 'global'/'other'/'all' respectively
+- Assign an appropriate confidence score between 0.7 and 0.95 based on how clearly stated the policy is
+- Use the id format "p1", "p2", etc.
+- Set approved to false for all extracted policies'''
